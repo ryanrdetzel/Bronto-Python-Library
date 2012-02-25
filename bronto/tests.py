@@ -1,10 +1,12 @@
 import unittest
 from bronto import *
+from configobj import ConfigObj
 
 class Test(unittest.TestCase):
     def setUp(self):
+        conf = ConfigObj('settings.ini')
         self.test_email = 'ryan+1@tester.com'
-        self.bronto = Bronto('DD839FBA-E630-46E4-B726-5E15700C11D9')
+        self.bronto = Bronto(conf['token'])
 
     def testCreateContact(self):
         bronto = self.bronto
