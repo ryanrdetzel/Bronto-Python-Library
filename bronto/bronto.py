@@ -14,7 +14,15 @@ class LoginError(BrontoError):
 class SaveContactFailed(BrontoError):
     pass
 
+class DeleteContactFailed(BrontoError):
+    pass
+
+class SaveListFailed(BrontoError):
+    pass
  
+class DeleteListFailed(BrontoError):
+    pass
+
 class Bronto(object):
     '''
         Base Bronto class, accepts only the api key as an init arg
@@ -57,16 +65,29 @@ class Bronto(object):
         contact = self.api.service.readContacts(filter,includeLists=True)
         return BrontoContact(contact[0])
 
-    def contactList(self):
+    def getContacts(self,status=None,created=None,page=1):
         filter = self.api.factory.create('contactFilter')
         filterType = self.api.factory.create('filterType') 
         filter.type = filterType.AND
 
+        if status:
+            filter.status = status 
+
         contacts = []
-        for contact in self.api.service.readContacts(filter, includeLists = True, pageNumber = 1):
+        for contact in self.api.service.readContacts(filter, includeLists = True, pageNumber=page):
             contacts.append(BrontoContact(contact))
 
         return contacts
+
+    def getLists(self,page=1):
+        filter = self.api.factory.create('mailListFilter')
+        filterType = self.api.factory.create('filterType')
+        filter.type = filterType.AND
+        
+        lists = []
+        for list in self.api.service.readLists(filter,pageNumber=page):
+            lists.append(BrontoList(list))
+        return lists
 
 class BrontoContact(object):
     ''' Basic Bronto contact '''
@@ -85,7 +106,7 @@ class BrontoContact(object):
         contact.email = self.email
         delete_contact = bronto.api.service.deleteContacts(contact)
         if delete_contact.results[0].isError == True:
-            raise SaveContactFailed(
+            raise DeleteContactFailed(
                 delete_contact.results[0]['errorCode'],
                 delete_contact.results[0]['errorString'])
         else:
@@ -112,6 +133,7 @@ class BrontoContact(object):
             ''' create '''   
             contact = bronto.api.factory.create('contactObject')
             contact.email = self.email
+            ## Init all the required fields?
             add_contact = bronto.api.service.addContacts(contact)
             if add_contact.results[0].isError == True:
                 raise SaveContactFailed(
@@ -120,3 +142,61 @@ class BrontoContact(object):
             else:
                 self.id = add_contact.results[0].id
             return self 
+
+class BrontoList(object):
+    def __init__(self,data):
+        if type(data) is dict:
+            for obj,val in data.items():
+                setattr(self,obj,val)
+        else:
+            for obj,val in data:
+                setattr(self,obj,val)
+
+        ## check to at least name and label
+
+    def delete(self,bronto):
+        if hasattr(self,'id') and self.id is not None:
+            maillist = bronto.api.factory.create('mailListObject')
+            maillist.id = self.id
+            delete_list = bronto.api.service.deleteLists(maillist)
+            if delete_list.results[0].isError == True:
+                raise DeleteListFailed(
+                    delete_list.results[0]['errorCode'],
+                    delete_list.results[0]['errorString'])
+            else:
+                ## Clear out the id so if we save it adds not updates
+                self.id = None
+        else:
+            ## Object is not on bronto server
+            pass 
+        return self
+
+    def save(self,bronto):
+        ''' If it's a new contact create it otherwise update '''
+        if hasattr(self,'id') and self.id is not None:
+            ''' update '''
+            c = bronto.api.factory.create('mailListObject')
+            c.id = self.id
+            c.status = self.status
+            c.label = self.label
+            c.name = self.name
+            c.activeCount = self.activeCount
+            c.visibility = self.visibility
+            bronto.api.service.updateLists([c])
+            return self
+        else:
+            ''' create '''
+            maillist = bronto.api.factory.create('mailListObject')
+            maillist.name = self.name
+            maillist.label = self.label
+            #maillist.status = self.status
+            #maillist.activeCount = self.activeCount
+            #maillist.visibiliy = self.visibility
+            maillists = bronto.api.service.addLists(maillist)
+            if maillists.results[0].isError == True:
+                raise SaveListFailed(
+                    maillists.results[0]['errorCode'],
+                    maillists.results[0]['errorString'])
+            else:
+                self.id = maillists.results[0].id
+            return self
