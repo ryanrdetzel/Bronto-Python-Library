@@ -3,3 +3,12 @@ Bronto Python API Library
 ReadContact
 DeleteContact
 ContactList
+
+Setup
+Install required mofules
+create settings.ini file with token=YOUR API TOKEN
+run tests.py
+
+Required Modules
+sudo pip install configobj
+sudo pip install suds
